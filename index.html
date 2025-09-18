@@ -241,7 +241,6 @@
       <button class="btn" onclick="buyMiner()">شراء عامل (50 ذهب)</button>
       <button class="btn" id="dailyBonusBtn" onclick="claimDailyBonus()">المطالبة بالمكافأة اليومية</button>
       <button class="btn" id="googleLogin">تسجيل الدخول عبر Google</button>
-      <button class="btn" id="manualSave" onclick="manualSave()">💾 حفظ يدوي</button>
     </div>
   </div>
 
@@ -278,7 +277,7 @@
     // إنشاء عميل Supabase
     const supabaseClient = supabase.createClient(
       "https://ltcpldhijbovvezfenqe.supabase.co",
-      "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhYmFzZSIsInJlZiI6Imx0Y3BsZGhpamJvdnZlemZlbnFlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTgxNDM4MDAsImV4cCI6MjA3MzcxOTgwMH0.LCQ_R5SX5x9v5qb4OT2n1_gyiywLoRJbWMOpYyxv5jo"
+      "eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9.eyJpc3MiOiJzdXBhbmFzZSIsInJlZiI6Imx0Y3BsZGhpamJvdnZlemZlbnFlIiwicm9sZSI6ImFub24iLCJpYXQiOjE3NTgxNDM4MDAsImV4cCI6MjA3MzcxOTgwMH0.LCQ_R5SX5x9v5qb4OT2n1_gyiywLoRJbWMOpYyxv5jo"
     );
 
     // بيانات اللعبة
@@ -290,12 +289,29 @@
       userId: null,
       lastBonusClaim: null,
       lastSave: null,
-      lastMiningTime: 0,
-      miningSpeed: 0
+      miningSpeed: 0.5,
+      lastUpdate: Date.now()
     };
 
     // تهيئة اللعبة
     document.addEventListener('DOMContentLoaded', async () => {
+      // تحميل البيانات المحلية أولاً
+      const localData = localStorage.getItem('goldMinerGame');
+      if (localData) {
+        const parsedData = JSON.parse(localData);
+        Object.assign(gameData, parsedData);
+        
+        // حساب الذهب المتراكم أثناء الغياب
+        const now = Date.now();
+        const timeDiff = (now - gameData.lastUpdate) / 1000; // الفترة بالثواني
+        const goldEarned = gameData.miners * gameData.miningSpeed * timeDiff;
+        gameData.gold += goldEarned;
+        gameData.points += goldEarned / 2;
+        gameData.lastUpdate = now;
+        
+        updateUI();
+      }
+      
       // التحقق من حالة تسجيل الدخول
       const { data: { session } } = await supabaseClient.auth.getSession();
       
@@ -311,14 +327,6 @@
         }, 2000);
       }
       
-      // تحميل بيانات اللعبة المحلية إذا وجدت
-      const localData = localStorage.getItem('goldMinerGame');
-      if (localData) {
-        const parsedData = JSON.parse(localData);
-        Object.assign(gameData, parsedData);
-        updateUI();
-      }
-      
       // التحقق من المكافأة اليومية
       checkDailyBonus();
       
@@ -327,6 +335,9 @@
       
       // بدء التعدين التلقائي
       startAutoMining();
+      
+      // بدء الحفظ التلقائي كل 5 ثواني
+      startAutoSave();
     });
 
     // بدء التعدين التلقائي
@@ -337,14 +348,18 @@
         if (goldEarned > 0) {
           gameData.gold += goldEarned;
           gameData.points += goldEarned / 2;
+          gameData.miningTime++;
           updateUI();
-          
-          // حفظ تلقائي كل 30 ثانية
-          if (gameData.miningTime % 30 === 0) {
-            saveGameData();
-          }
         }
       }, 1000);
+    }
+
+    // بدء الحفظ التلقائي
+    function startAutoSave() {
+      setInterval(() => {
+        gameData.lastUpdate = Date.now();
+        saveGameData();
+      }, 5000); // حفظ كل 5 ثواني
     }
 
     // تحديث الواجهة
@@ -358,7 +373,7 @@
       document.getElementById('miningSpeedStat').textContent = (gameData.miners * gameData.miningSpeed).toFixed(1);
       
       // تحديث حالة زر شراء العامل
-      document.querySelectorAll('button')[2].disabled = gameData.gold < 50;
+      document.querySelectorAll('button')[1].disabled = gameData.gold < 50;
     }
 
     // تحديث وقت آخر حفظ
@@ -419,7 +434,7 @@
     // إغلاق نافذة تسجيل الدخول
     document.getElementById("closeLogin").addEventListener("click", () => {
       document.getElementById('loginModal').style.display = 'none';
-      showNotification('أنت تلعب كزائر، لن يتم حفظ تقدمك تلقائياً');
+      showNotification('أنت تلعب كزائر، سيتم حفظ تقدمك محلياً فقط');
     });
 
     // حفظ بيانات اللعبة
@@ -427,6 +442,9 @@
       // إظهار مؤشر الحفظ
       const saveIndicator = document.getElementById('saveIndicator');
       saveIndicator.style.display = 'block';
+      
+      // تحديث وقت التحديث الأخير
+      gameData.lastUpdate = Date.now();
       
       // حفظ محلي
       localStorage.setItem('goldMinerGame', JSON.stringify(gameData));
@@ -442,21 +460,20 @@
               miners: gameData.miners,
               mining_time: gameData.miningTime,
               points: gameData.points,
+              mining_speed: gameData.miningSpeed,
               last_bonus_claim: gameData.lastBonusClaim,
-              last_save: new Date().toISOString()
+              last_save: new Date().toISOString(),
+              last_update: new Date().toISOString()
             });
           
           if (error) {
             console.error("خطأ في الحفظ:", error.message);
-            showNotification('❌ فشل في الحفظ: ' + error.message, 3000);
           } else {
             gameData.lastSave = new Date().toISOString();
             updateLastSaveTime();
-            showNotification('💾 تم حفظ التقدم بنجاح', 2000);
           }
         } catch (err) {
           console.error("خطأ غير متوقع:", err);
-          showNotification('❌ حدث خطأ غير متوقع أثناء الحفظ', 3000);
         }
       }
       
@@ -464,11 +481,6 @@
       setTimeout(() => {
         saveIndicator.style.display = 'none';
       }, 1000);
-    }
-
-    // حفظ يدوي
-    async function manualSave() {
-      await saveGameData();
     }
 
     // تحميل بيانات اللعبة
@@ -483,13 +495,29 @@
           .single();
           
         if (data && !error) {
-          gameData.gold = data.gold || 0;
+          // حساب الذهب المتراكم أثناء الغياب
+          if (data.last_update) {
+            const lastUpdate = new Date(data.last_update).getTime();
+            const now = Date.now();
+            const timeDiff = (now - lastUpdate) / 1000; // الفترة بالثواني
+            
+            const miningSpeed = data.mining_speed || 0.5;
+            const goldEarned = data.miners * miningSpeed * timeDiff;
+            
+            gameData.gold = (data.gold || 0) + goldEarned;
+            gameData.points = (data.points || 0) + (goldEarned / 2);
+          } else {
+            gameData.gold = data.gold || 0;
+            gameData.points = data.points || 0;
+          }
+          
           gameData.miners = data.miners || 1;
           gameData.miningTime = data.mining_time || 0;
-          gameData.points = data.points || 0;
+          gameData.miningSpeed = data.mining_speed || 0.5;
           gameData.lastBonusClaim = data.last_bonus_claim;
           gameData.lastSave = data.last_save;
-          gameData.miningSpeed = 0.5; // سرعة تعدين افتراضية
+          gameData.lastUpdate = Date.now();
+          
           updateUI();
           updateLastSaveTime();
           checkDailyBonus();
@@ -572,12 +600,6 @@
     document.getElementById('closeStats').addEventListener('click', () => {
       document.getElementById('playerStats').style.display = 'none';
     });
-
-    // عداد وقت التعدين
-    setInterval(() => {
-      gameData.miningTime++;
-      updateUI();
-    }, 1000);
 
     // حفظ قبل مغادرة الصفحة
     window.addEventListener('beforeunload', () => {
