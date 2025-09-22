@@ -1,0 +1,51 @@
+<!DOCTYPE html>
+<html lang="ar" dir="rtl">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>نسخة اختبارية - إعلان حقيقي</title>
+  <style>
+    body { font-family: Arial; text-align: center; background:#f0f0f0; padding:20px; }
+    h1 { color:#333; }
+    #ad { width:320px; height:250px; margin:20px auto; border:2px dashed #aaa; background:#fff; }
+    #timer { margin-top:15px; font-size:16px; color:#007BFF; }
+  </style>
+</head>
+<body>
+
+<h1>إعلانات الموقع (نسخة اختبارية)</h1>
+<div id="ad"></div>
+<div id="timer">يتغير الإعلان خلال 15 ثانية</div>
+
+<script>
+let timeLeft = 15;
+const adContainer = document.getElementById("ad");
+const timerElement = document.getElementById("timer");
+
+// الكود الفعلي للإعلان
+const adCode = `
+<script async="async" data-cfasync="false" src="//pl27503803.revenuecpmgate.com/b45971d1b8aa3575bc8628fdb5505ba0/invoke.js"></script>
+<div id="container-b45971d1b8aa3575bc8628fdb5505ba0"></div>
+`;
+
+function changeAd() {
+  adContainer.innerHTML = adCode;
+  timeLeft = 15;
+}
+
+// تحميل أول إعلان عند فتح الصفحة
+changeAd();
+
+// تحديث الإعلان كل ثانية للعداد
+setInterval(() => {
+  timeLeft--;
+  if(timeLeft <= 0){
+    changeAd();
+  }
+  timerElement.textContent = "يتغير الإعلان خلال " + timeLeft + " ثانية";
+}, 1000);
+
+</script>
+
+</body>
+</html>
